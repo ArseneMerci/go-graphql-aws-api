@@ -1,0 +1,753 @@
+{
+  "service": {
+    "service": "infrastructure",
+    "serviceObject": {
+      "name": "infrastructure"
+    },
+    "provider": {
+      "name": "aws",
+      "region": "eu-central-1",
+      "stage": "dev",
+      "versionFunctions": true,
+      "compiledCloudFormationTemplate": {
+        "AWSTemplateFormatVersion": "2010-09-09",
+        "Description": "The AWS CloudFormation template for this Serverless application",
+        "Resources": {
+          "ServerlessDeploymentBucket": {
+            "Type": "AWS::S3::Bucket",
+            "Properties": {
+              "BucketEncryption": {
+                "ServerSideEncryptionConfiguration": [
+                  {
+                    "ServerSideEncryptionByDefault": {
+                      "SSEAlgorithm": "AES256"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "ServerlessDeploymentBucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+              "Bucket": {
+                "Ref": "ServerlessDeploymentBucket"
+              },
+              "PolicyDocument": {
+                "Statement": [
+                  {
+                    "Action": "s3:*",
+                    "Effect": "Deny",
+                    "Principal": "*",
+                    "Resource": [
+                      {
+                        "Fn::Join": [
+                          "",
+                          [
+                            "arn:",
+                            {
+                              "Ref": "AWS::Partition"
+                            },
+                            ":s3:::",
+                            {
+                              "Ref": "ServerlessDeploymentBucket"
+                            },
+                            "/*"
+                          ]
+                        ]
+                      },
+                      {
+                        "Fn::Join": [
+                          "",
+                          [
+                            "arn:",
+                            {
+                              "Ref": "AWS::Partition"
+                            },
+                            ":s3:::",
+                            {
+                              "Ref": "ServerlessDeploymentBucket"
+                            }
+                          ]
+                        ]
+                      }
+                    ],
+                    "Condition": {
+                      "Bool": {
+                        "aws:SecureTransport": false
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "librarydb": {
+            "Type": "AWS::DynamoDB::Table",
+            "Properties": {
+              "AttributeDefinitions": [
+                {
+                  "AttributeName": "pk",
+                  "AttributeType": "S"
+                },
+                {
+                  "AttributeName": "sk",
+                  "AttributeType": "S"
+                },
+                {
+                  "AttributeName": "gsi1pk",
+                  "AttributeType": "S"
+                },
+                {
+                  "AttributeName": "gsi1sk",
+                  "AttributeType": "S"
+                }
+              ],
+              "BillingMode": "PAY_PER_REQUEST",
+              "DeletionProtectionEnabled": true,
+              "GlobalSecondaryIndexes": [
+                {
+                  "IndexName": "gsi1",
+                  "KeySchema": [
+                    {
+                      "AttributeName": "gsi1pk",
+                      "KeyType": "HASH"
+                    },
+                    {
+                      "AttributeName": "gsi1sk",
+                      "KeyType": "RANGE"
+                    }
+                  ],
+                  "Projection": {
+                    "ProjectionType": "ALL"
+                  }
+                }
+              ],
+              "StreamSpecification": {
+                "StreamViewType": "NEW_AND_OLD_IMAGES"
+              },
+              "KeySchema": [
+                {
+                  "AttributeName": "pk",
+                  "KeyType": "HASH"
+                },
+                {
+                  "AttributeName": "sk",
+                  "KeyType": "RANGE"
+                }
+              ]
+            }
+          },
+          "libraryUserPool": {
+            "Type": "AWS::Cognito::UserPool",
+            "Properties": {
+              "UserPoolName": "libraryusers-dev",
+              "UsernameAttributes": [
+                "email",
+                "phone_number"
+              ],
+              "DeletionProtection": "ACTIVE",
+              "UserPoolAddOns": {
+                "AdvancedSecurityMode": "AUDIT"
+              },
+              "LambdaConfig": {
+                "PreSignUp": {
+                  "Fn::Sub": [
+                    "arn:aws:lambda:eu-central-1:681171952936:function:cognitotriggers-${stage}-presignup",
+                    {
+                      "stage": "dev"
+                    }
+                  ]
+                },
+                "CustomMessage": {
+                  "Fn::Sub": [
+                    "arn:aws:lambda:eu-central-1:681171952936:function:cognitotriggers-${stage}-custommessages",
+                    {
+                      "stage": "dev"
+                    }
+                  ]
+                },
+                "PreTokenGenerationConfig": {
+                  "LambdaArn": {
+                    "Fn::Sub": [
+                      "arn:aws:lambda:eu-central-1:681171952936:function:cognitotriggers-${stage}-pretokengeneration",
+                      {
+                        "stage": "dev"
+                      }
+                    ]
+                  },
+                  "LambdaVersion": "V2_0"
+                }
+              }
+            }
+          },
+          "libraryUserPoolDomain": {
+            "Type": "AWS::Cognito::UserPoolDomain",
+            "Properties": {
+              "Domain": "library-arsenedev",
+              "UserPoolId": {
+                "Ref": "libraryUserPool"
+              }
+            }
+          },
+          "libraryWeb": {
+            "Type": "AWS::Cognito::UserPoolClient",
+            "Properties": {
+              "UserPoolId": {
+                "Ref": "libraryUserPool"
+              },
+              "CallbackURLs": [
+                "http://localhost:3005"
+              ],
+              "AllowedOAuthFlowsUserPoolClient": true,
+              "SupportedIdentityProviders": [
+                "COGNITO"
+              ],
+              "AllowedOAuthFlows": [
+                "code"
+              ],
+              "AllowedOAuthScopes": [
+                "email",
+                "openid",
+                "phone",
+                "profile"
+              ]
+            }
+          },
+          "libraryPostman": {
+            "Type": "AWS::Cognito::UserPoolClient",
+            "Properties": {
+              "UserPoolId": {
+                "Ref": "libraryUserPool"
+              },
+              "GenerateSecret": true,
+              "CallbackURLs": [
+                "https://oauth.pstmn.io/v1/callback",
+                "http://localhost:8080"
+              ],
+              "AccessTokenValidity": 60,
+              "IdTokenValidity": 60,
+              "RefreshTokenValidity": 60,
+              "TokenValidityUnits": {
+                "AccessToken": "minutes",
+                "IdToken": "minutes",
+                "RefreshToken": "days"
+              },
+              "AllowedOAuthFlowsUserPoolClient": true,
+              "SupportedIdentityProviders": [
+                "COGNITO"
+              ],
+              "AllowedOAuthFlows": [
+                "code"
+              ],
+              "AllowedOAuthScopes": [
+                "email",
+                "openid",
+                "phone",
+                "profile"
+              ]
+            }
+          },
+          "libraryGlobalAdministratorGroup": {
+            "Type": "AWS::Cognito::UserPoolGroup",
+            "Properties": {
+              "Description": "Global Administrators belong to this group",
+              "GroupName": "role:global-administrator",
+              "UserPoolId": {
+                "Ref": "libraryUserPool"
+              }
+            }
+          },
+          "libraryusersGroup": {
+            "Type": "AWS::Cognito::UserPoolGroup",
+            "Properties": {
+              "Description": "Global Administrators belong to this group",
+              "GroupName": "role:user",
+              "UserPoolId": {
+                "Ref": "libraryUserPool"
+              }
+            }
+          }
+        },
+        "Outputs": {
+          "ServerlessDeploymentBucketName": {
+            "Value": {
+              "Ref": "ServerlessDeploymentBucket"
+            },
+            "Export": {
+              "Name": "sls-infrastructure-dev-ServerlessDeploymentBucketName"
+            }
+          },
+          "LibraryDBTable": {
+            "Value": {
+              "Ref": "librarydb"
+            },
+            "Export": {
+              "Name": "dev-LibraryDBTable"
+            }
+          },
+          "LibraryDBTableArn": {
+            "Value": {
+              "Fn::GetAtt": [
+                "librarydb",
+                "Arn"
+              ]
+            },
+            "Export": {
+              "Name": "dev-LibraryDBTableArn"
+            }
+          },
+          "LibraryDBTableStreamArn": {
+            "Value": {
+              "Fn::GetAtt": [
+                "librarydb",
+                "StreamArn"
+              ]
+            },
+            "Export": {
+              "Name": "LibraryDBTableStreamArn"
+            }
+          },
+          "UserPoolID": {
+            "Value": {
+              "Ref": "libraryUserPool"
+            },
+            "Export": {
+              "Name": "dev-UserPoolID"
+            }
+          },
+          "UserPoolArn": {
+            "Value": {
+              "Fn::GetAtt": [
+                "libraryUserPool",
+                "Arn"
+              ]
+            },
+            "Export": {
+              "Name": "dev-UserPoolArn"
+            }
+          },
+          "UserPoolProviderUrl": {
+            "Value": {
+              "Fn::GetAtt": [
+                "libraryUserPool",
+                "ProviderURL"
+              ]
+            },
+            "Export": {
+              "Name": "dev-UserPoolProviderUrl"
+            }
+          },
+          "UserPoolProviderName": {
+            "Value": {
+              "Fn::GetAtt": [
+                "libraryUserPool",
+                "ProviderName"
+              ]
+            },
+            "Export": {
+              "Name": "dev-UserPoolProviderName"
+            }
+          },
+          "WebClientID": {
+            "Value": {
+              "Ref": "libraryWeb"
+            },
+            "Export": {
+              "Name": "dev-WebClientID"
+            }
+          },
+          "PostmanClientID": {
+            "Value": {
+              "Ref": "libraryPostman"
+            },
+            "Export": {
+              "Name": "dev-PostmanClientID"
+            }
+          }
+        }
+      },
+      "coreCloudFormationTemplate": {
+        "AWSTemplateFormatVersion": "2010-09-09",
+        "Description": "The AWS CloudFormation template for this Serverless application",
+        "Resources": {
+          "ServerlessDeploymentBucket": {
+            "Type": "AWS::S3::Bucket",
+            "Properties": {
+              "BucketEncryption": {
+                "ServerSideEncryptionConfiguration": [
+                  {
+                    "ServerSideEncryptionByDefault": {
+                      "SSEAlgorithm": "AES256"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "ServerlessDeploymentBucketPolicy": {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+              "Bucket": {
+                "Ref": "ServerlessDeploymentBucket"
+              },
+              "PolicyDocument": {
+                "Statement": [
+                  {
+                    "Action": "s3:*",
+                    "Effect": "Deny",
+                    "Principal": "*",
+                    "Resource": [
+                      {
+                        "Fn::Join": [
+                          "",
+                          [
+                            "arn:",
+                            {
+                              "Ref": "AWS::Partition"
+                            },
+                            ":s3:::",
+                            {
+                              "Ref": "ServerlessDeploymentBucket"
+                            },
+                            "/*"
+                          ]
+                        ]
+                      },
+                      {
+                        "Fn::Join": [
+                          "",
+                          [
+                            "arn:",
+                            {
+                              "Ref": "AWS::Partition"
+                            },
+                            ":s3:::",
+                            {
+                              "Ref": "ServerlessDeploymentBucket"
+                            }
+                          ]
+                        ]
+                      }
+                    ],
+                    "Condition": {
+                      "Bool": {
+                        "aws:SecureTransport": false
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "Outputs": {
+          "ServerlessDeploymentBucketName": {
+            "Value": {
+              "Ref": "ServerlessDeploymentBucket"
+            }
+          }
+        }
+      }
+    },
+    "pluginsData": {},
+    "functions": {},
+    "resources": {
+      "Resources": {
+        "librarydb": {
+          "Type": "AWS::DynamoDB::Table",
+          "Properties": {
+            "AttributeDefinitions": [
+              {
+                "AttributeName": "pk",
+                "AttributeType": "S"
+              },
+              {
+                "AttributeName": "sk",
+                "AttributeType": "S"
+              },
+              {
+                "AttributeName": "gsi1pk",
+                "AttributeType": "S"
+              },
+              {
+                "AttributeName": "gsi1sk",
+                "AttributeType": "S"
+              }
+            ],
+            "BillingMode": "PAY_PER_REQUEST",
+            "DeletionProtectionEnabled": true,
+            "GlobalSecondaryIndexes": [
+              {
+                "IndexName": "gsi1",
+                "KeySchema": [
+                  {
+                    "AttributeName": "gsi1pk",
+                    "KeyType": "HASH"
+                  },
+                  {
+                    "AttributeName": "gsi1sk",
+                    "KeyType": "RANGE"
+                  }
+                ],
+                "Projection": {
+                  "ProjectionType": "ALL"
+                }
+              }
+            ],
+            "StreamSpecification": {
+              "StreamViewType": "NEW_AND_OLD_IMAGES"
+            },
+            "KeySchema": [
+              {
+                "AttributeName": "pk",
+                "KeyType": "HASH"
+              },
+              {
+                "AttributeName": "sk",
+                "KeyType": "RANGE"
+              }
+            ]
+          }
+        },
+        "libraryUserPool": {
+          "Type": "AWS::Cognito::UserPool",
+          "Properties": {
+            "UserPoolName": "libraryusers-dev",
+            "UsernameAttributes": [
+              "email",
+              "phone_number"
+            ],
+            "DeletionProtection": "ACTIVE",
+            "UserPoolAddOns": {
+              "AdvancedSecurityMode": "AUDIT"
+            },
+            "LambdaConfig": {
+              "PreSignUp": {
+                "Fn::Sub": [
+                  "arn:aws:lambda:eu-central-1:681171952936:function:cognitotriggers-${stage}-presignup",
+                  {
+                    "stage": "dev"
+                  }
+                ]
+              },
+              "CustomMessage": {
+                "Fn::Sub": [
+                  "arn:aws:lambda:eu-central-1:681171952936:function:cognitotriggers-${stage}-custommessages",
+                  {
+                    "stage": "dev"
+                  }
+                ]
+              },
+              "PreTokenGenerationConfig": {
+                "LambdaArn": {
+                  "Fn::Sub": [
+                    "arn:aws:lambda:eu-central-1:681171952936:function:cognitotriggers-${stage}-pretokengeneration",
+                    {
+                      "stage": "dev"
+                    }
+                  ]
+                },
+                "LambdaVersion": "V2_0"
+              }
+            }
+          }
+        },
+        "libraryUserPoolDomain": {
+          "Type": "AWS::Cognito::UserPoolDomain",
+          "Properties": {
+            "Domain": "library-arsenedev",
+            "UserPoolId": {
+              "Ref": "libraryUserPool"
+            }
+          }
+        },
+        "libraryWeb": {
+          "Type": "AWS::Cognito::UserPoolClient",
+          "Properties": {
+            "UserPoolId": {
+              "Ref": "libraryUserPool"
+            },
+            "CallbackURLs": [
+              "http://localhost:3005"
+            ],
+            "AllowedOAuthFlowsUserPoolClient": true,
+            "SupportedIdentityProviders": [
+              "COGNITO"
+            ],
+            "AllowedOAuthFlows": [
+              "code"
+            ],
+            "AllowedOAuthScopes": [
+              "email",
+              "openid",
+              "phone",
+              "profile"
+            ]
+          }
+        },
+        "libraryPostman": {
+          "Type": "AWS::Cognito::UserPoolClient",
+          "Properties": {
+            "UserPoolId": {
+              "Ref": "libraryUserPool"
+            },
+            "GenerateSecret": true,
+            "CallbackURLs": [
+              "https://oauth.pstmn.io/v1/callback",
+              "http://localhost:8080"
+            ],
+            "AccessTokenValidity": 60,
+            "IdTokenValidity": 60,
+            "RefreshTokenValidity": 60,
+            "TokenValidityUnits": {
+              "AccessToken": "minutes",
+              "IdToken": "minutes",
+              "RefreshToken": "days"
+            },
+            "AllowedOAuthFlowsUserPoolClient": true,
+            "SupportedIdentityProviders": [
+              "COGNITO"
+            ],
+            "AllowedOAuthFlows": [
+              "code"
+            ],
+            "AllowedOAuthScopes": [
+              "email",
+              "openid",
+              "phone",
+              "profile"
+            ]
+          }
+        },
+        "libraryGlobalAdministratorGroup": {
+          "Type": "AWS::Cognito::UserPoolGroup",
+          "Properties": {
+            "Description": "Global Administrators belong to this group",
+            "GroupName": "role:global-administrator",
+            "UserPoolId": {
+              "Ref": "libraryUserPool"
+            }
+          }
+        },
+        "libraryusersGroup": {
+          "Type": "AWS::Cognito::UserPoolGroup",
+          "Properties": {
+            "Description": "Global Administrators belong to this group",
+            "GroupName": "role:user",
+            "UserPoolId": {
+              "Ref": "libraryUserPool"
+            }
+          }
+        }
+      },
+      "Outputs": {
+        "LibraryDBTable": {
+          "Value": {
+            "Ref": "librarydb"
+          },
+          "Export": {
+            "Name": "dev-LibraryDBTable"
+          }
+        },
+        "LibraryDBTableArn": {
+          "Value": {
+            "Fn::GetAtt": [
+              "librarydb",
+              "Arn"
+            ]
+          },
+          "Export": {
+            "Name": "dev-LibraryDBTableArn"
+          }
+        },
+        "LibraryDBTableStreamArn": {
+          "Value": {
+            "Fn::GetAtt": [
+              "librarydb",
+              "StreamArn"
+            ]
+          },
+          "Export": {
+            "Name": "LibraryDBTableStreamArn"
+          }
+        },
+        "UserPoolID": {
+          "Value": {
+            "Ref": "libraryUserPool"
+          },
+          "Export": {
+            "Name": "dev-UserPoolID"
+          }
+        },
+        "UserPoolArn": {
+          "Value": {
+            "Fn::GetAtt": [
+              "libraryUserPool",
+              "Arn"
+            ]
+          },
+          "Export": {
+            "Name": "dev-UserPoolArn"
+          }
+        },
+        "UserPoolProviderUrl": {
+          "Value": {
+            "Fn::GetAtt": [
+              "libraryUserPool",
+              "ProviderURL"
+            ]
+          },
+          "Export": {
+            "Name": "dev-UserPoolProviderUrl"
+          }
+        },
+        "UserPoolProviderName": {
+          "Value": {
+            "Fn::GetAtt": [
+              "libraryUserPool",
+              "ProviderName"
+            ]
+          },
+          "Export": {
+            "Name": "dev-UserPoolProviderName"
+          }
+        },
+        "WebClientID": {
+          "Value": {
+            "Ref": "libraryWeb"
+          },
+          "Export": {
+            "Name": "dev-WebClientID"
+          }
+        },
+        "PostmanClientID": {
+          "Value": {
+            "Ref": "libraryPostman"
+          },
+          "Export": {
+            "Name": "dev-PostmanClientID"
+          }
+        }
+      }
+    },
+    "configValidationMode": "warn",
+    "serviceFilename": "serverless.yml",
+    "initialServerlessConfig": {
+      "service": "infrastructure",
+      "frameworkVersion": "3",
+      "provider": {
+        "$ref": "$[\"service\"][\"provider\"]"
+      },
+      "resources": {
+        "$ref": "$[\"service\"][\"resources\"]"
+      }
+    },
+    "layers": {},
+    "isDashboardMonitoringPreconfigured": false
+  },
+  "package": {
+    "artifactDirectoryName": "serverless/infrastructure/dev/1726842953237-2024-09-20T14:35:53.237Z",
+    "artifact": ""
+  }
+}

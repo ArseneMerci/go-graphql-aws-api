@@ -1,0 +1,15 @@
+Resources:
+  ## ROLE Groups
+  libraryGlobalAdministratorGroup:
+    Type: "AWS::Cognito::UserPoolGroup"
+    Properties:
+      Description: "Global Administrators belong to this group"
+      GroupName: "role:global-administrator"
+      UserPoolId: !Ref libraryUserPool
+
+  libraryusersGroup:
+    Type: "AWS::Cognito::UserPoolGroup"
+    Properties:
+      Description: "Global Administrators belong to this group"
+      GroupName: "role:user"
+      UserPoolId: !Ref libraryUserPool

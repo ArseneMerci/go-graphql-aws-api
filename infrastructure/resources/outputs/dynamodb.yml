@@ -1,0 +1,13 @@
+Outputs:
+  LibraryDBTable:
+    Value: !Ref librarydb
+    Export:
+      Name: ${self:provider.stage}-LibraryDBTable
+  LibraryDBTableArn:
+    Value: !GetAtt librarydb.Arn
+    Export:
+      Name: ${self:provider.stage}-LibraryDBTableArn
+  LibraryDBTableStreamArn:
+    Value: !GetAtt librarydb.StreamArn
+    Export:
+      Name: LibraryDBTableStreamArn

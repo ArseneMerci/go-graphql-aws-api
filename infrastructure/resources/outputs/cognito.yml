@@ -1,0 +1,25 @@
+Outputs:
+  UserPoolID:
+    Value: !Ref libraryUserPool
+    Export:
+      Name: ${self:provider.stage}-UserPoolID
+  UserPoolArn:
+    Value: !GetAtt libraryUserPool.Arn
+    Export:
+      Name: ${self:provider.stage}-UserPoolArn
+  UserPoolProviderUrl:
+    Value: !GetAtt libraryUserPool.ProviderURL
+    Export:
+      Name: ${self:provider.stage}-UserPoolProviderUrl
+  UserPoolProviderName:
+    Value: !GetAtt libraryUserPool.ProviderName
+    Export:
+      Name: ${self:provider.stage}-UserPoolProviderName
+  WebClientID:
+    Value: !Ref libraryWeb
+    Export:
+      Name: ${self:provider.stage}-WebClientID
+  PostmanClientID:
+    Value: !Ref libraryPostman
+    Export:
+      Name: ${self:provider.stage}-PostmanClientID
